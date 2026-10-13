@@ -70,6 +70,16 @@ This is a free, open-source project, and it gets better with every person who us
 - A settings page for editing the word list without touching code.
 - Better handling for specific sites: anywhere the 💩 lands in the wrong place.
 
+## Disclaimer
+
+- **Use at your own risk.** Hide Trump guesses what to hide from text, links and page layout. It may hide things that aren't about Trump, miss things that are, or change how a website looks or behaves. Turn it off with the button, or disable it on your browser's extensions page, if a site misbehaves.
+- **No affiliation.** This project is not affiliated with, endorsed by or connected to Donald Trump, any political party or campaign, or any website it runs on (including Facebook, Instagram, Reddit, YouTube, X and news sites). All names and trademarks belong to their owners.
+- **A personal content filter.** It works like muting a word. It isn't a political statement or advice of any kind.
+- **No data collected.** Everything runs in your browser. Nothing is collected, stored elsewhere or sent anywhere.
+- **Websites change.** Sites update their pages constantly, and the extension may stop working on any of them without notice.
+
+Provided "as is", without warranty of any kind, under the MIT License below.
+
 ## License
 
 MIT. Free to use, copy and modify. See [LICENSE](LICENSE).
