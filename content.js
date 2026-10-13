@@ -52,16 +52,59 @@
   // ---- Hiding / restoring ----------------------------------------------
   function hide(el) {
     if (!el || el === host || hidden.has(el)) return;
-    hidden.set(el, [el.style.getPropertyValue('display'), el.style.getPropertyPriority('display')]);
+    const stub = isInRow(el) ? makePlaceholder(el) : null;
+    hidden.set(el, [el.style.getPropertyValue('display'), el.style.getPropertyPriority('display'), stub]);
     el.style.setProperty('display', 'none', 'important');
   }
 
   function restoreAll() {
-    for (const [el, [value, priority]] of hidden) {
+    for (const [el, [value, priority, stub]] of hidden) {
       if (value) el.style.setProperty('display', value, priority);
       else el.style.removeProperty('display');
+      if (stub) stub.remove();
     }
     hidden.clear();
+  }
+
+  // ---- 💩 placeholders ---------------------------------------------------
+  // Items laid out side by side (YouTube's video grid, rows of thumbnails) would leave a hole
+  // when removed, so they get a same-sized 💩 instead. Stacked feeds just close up.
+  const PLACEHOLDER = 'data-hide-trump-placeholder';
+
+  function isInRow(el) {
+    const p = el.parentElement;
+    if (!p) return false;
+    const s = getComputedStyle(p);
+    return s.display.endsWith('grid') || (s.display.endsWith('flex') && s.flexDirection.startsWith('row'));
+  }
+
+  function makePlaceholder(el) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 40 || r.height < 40) return null;
+    const cs = getComputedStyle(el);
+    const stub = document.createElement('div');
+    stub.setAttribute(PLACEHOLDER, '');
+    stub.title = 'Hidden by Hide Trump';
+    stub.textContent = '💩';
+    Object.assign(stub.style, {
+      boxSizing: 'border-box', width: r.width + 'px', height: r.height + 'px',
+      margin: cs.margin, flex: '0 0 auto', gridColumn: cs.gridColumn, gridRow: cs.gridRow,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: Math.round(Math.min(64, Math.max(20, Math.min(r.width, r.height) / 3))) + 'px',
+      background: 'rgba(128,128,128,.12)', borderRadius: '12px', userSelect: 'none'
+    });
+    el.before(stub);
+    return stub;
+  }
+
+  // Sites that recycle or remove items (infinite scroll) would leave orphaned 💩s behind.
+  function dropOrphanPlaceholders() {
+    for (const [el, entry] of hidden) {
+      if (!el.isConnected) {
+        if (entry[2]) entry[2].remove();
+        hidden.delete(el);
+      }
+    }
   }
 
   function parentOf(n) {
@@ -209,7 +252,7 @@
   }
 
   function checkElement(el) {
-    if (el === host || SKIP_TAGS.has(el.tagName)) return;
+    if (el === host || SKIP_TAGS.has(el.tagName) || el.hasAttribute(PLACEHOLDER)) return;
     if (el.shadowRoot) {
       if (!observedRoots.has(el.shadowRoot)) {
         observedRoots.add(el.shadowRoot);
@@ -273,6 +316,7 @@
     linkIndex = null;
     const nodes = [...queue];
     queue.clear();
+    dropOrphanPlaceholders();
     for (const n of nodes) if (n.isConnected) scan(n);
     ensureButton();
     render();
