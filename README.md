@@ -15,14 +15,16 @@ The on/off setting is shared across all tabs, so it stays on as you browse.
 
 ## Install
 
-Works in Chrome, Edge, Brave, Opera and Vivaldi.
+Works in Chrome, Edge, Brave, Opera, Vivaldi and Arc. Firefox works only until it restarts.
+
+**📖 [Full setup guide for every browser →](INSTALL.md)** (includes updating, uninstalling and troubleshooting)
+
+Quick version for Chrome:
 
 1. Download this repository (**Code → Download ZIP**) and unzip it somewhere you'll keep it.
-2. Open `chrome://extensions` (Edge: `edge://extensions`).
+2. Open `chrome://extensions`.
 3. Turn on **Developer mode** (top right).
-4. Click **Load unpacked** and choose the unzipped folder.
-
-To update, replace the folder with the new download and click the reload ↻ icon on the extension card, then refresh any open tabs.
+4. Click **Load unpacked** and choose the unzipped `hide-trump-main` folder.
 
 ## Customising
 
