@@ -52,7 +52,7 @@
   // ---- Hiding / restoring ----------------------------------------------
   function hide(el) {
     if (!el || el === host || hidden.has(el)) return;
-    const stub = isInRow(el) ? makePlaceholder(el) : null;
+    const stub = makePlaceholder(el, isInRow(el));
     hidden.set(el, [el.style.getPropertyValue('display'), el.style.getPropertyPriority('display'), stub]);
     el.style.setProperty('display', 'none', 'important');
   }
@@ -67,9 +67,9 @@
   }
 
   // ---- 💩 placeholders ---------------------------------------------------
-  // Items laid out side by side (YouTube's video grid, rows of thumbnails) would leave a hole
-  // when removed, so they get a same-sized 💩 instead. Stacked feeds just close up.
+  // Everything hidden is replaced by a 💩 taking up the same space.
   const PLACEHOLDER = 'data-hide-trump-placeholder';
+  const MAX_STACKED_STUB = 600; // px; keeps a hidden photo post in a long feed from becoming a wall of poop
 
   function isInRow(el) {
     const p = el.parentElement;
@@ -78,20 +78,25 @@
     return s.display.endsWith('grid') || (s.display.endsWith('flex') && s.flexDirection.startsWith('row'));
   }
 
-  function makePlaceholder(el) {
-    const r = el.getBoundingClientRect();
-    if (r.width < 40 || r.height < 40) return null;
+  function makePlaceholder(el, inRow) {
+    if (!el.parentElement) return null;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) return null;
+    const r = { width: rect.width, height: inRow ? rect.height : Math.min(rect.height, MAX_STACKED_STUB) };
     const cs = getComputedStyle(el);
     const stub = document.createElement('div');
     stub.setAttribute(PLACEHOLDER, '');
     stub.title = 'Hidden by Hide Trump';
     stub.textContent = '💩';
+    // Big for photos and cards, line-sized for a hidden headline.
+    const size = r.height < 80 ? r.height * 0.7 : Math.min(r.width, r.height) / 3;
     Object.assign(stub.style, {
       boxSizing: 'border-box', width: r.width + 'px', height: r.height + 'px',
       margin: cs.margin, flex: '0 0 auto', gridColumn: cs.gridColumn, gridRow: cs.gridRow,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: Math.round(Math.min(64, Math.max(20, Math.min(r.width, r.height) / 3))) + 'px',
-      background: 'rgba(128,128,128,.12)', borderRadius: '12px', userSelect: 'none'
+      display: cs.display.startsWith('inline') ? 'inline-flex' : 'flex',
+      alignItems: 'center', justifyContent: 'center', verticalAlign: 'middle',
+      fontSize: Math.round(Math.min(64, Math.max(12, size))) + 'px', lineHeight: '1',
+      overflow: 'hidden', userSelect: 'none'
     });
     el.before(stub);
     return stub;
@@ -151,17 +156,20 @@
     const post = closestAcrossShadow(start, POSTS);
     if (post && !post.matches(PROTECTED)) return post;
     const headline = !!start.closest('h1,h2,h3,h4');
-    let best = null;
+    let best = null, single = null; // single: the outermost block that is still just this one story
     let n = start;
     for (let depth = 0; n && n.nodeType === 1 && depth < MAX_DEPTH; depth++, n = parentOf(n)) {
       if (n === host || n.matches(PROTECTED)) break;
       // A headline about Trump takes its whole article with it; a passing mention in a long piece only hides that paragraph.
       if (textLen(n) > MAX_TEXT && !(headline && n.matches('article,[role="article"]'))) break;
       if (n.matches(SEMANTIC)) return n;
+      // A card holds one story; an area linking to several different stories is a column or section.
+      if (n !== start && storyCount(n) > 1) break;
       if (isRepeated(n) && isBlock(n)) return n;
       if (!best && n.matches(CLASSY) && isBlock(n)) best = n;
+      if (n !== start && storyCount(n) === 1 && isBlock(n)) single = n;
     }
-    return best || start.closest('p,h1,h2,h3,h4,h5,h6,blockquote,figcaption,a,td,label') || start;
+    return best || single || start.closest('p,h1,h2,h3,h4,h5,h6,blockquote,figcaption,a,td,label') || start;
   }
 
   function hideFor(el) {
@@ -244,6 +252,27 @@
     }
   }
 
+  // ---- Whole pages about Trump -----------------------------------------
+  // On a page that is itself about Trump (his Instagram profile, r/trump, a Trump article,
+  // a "trump" search), every photo and video is him, even when nothing labels it.
+  const TRUMP_ACCOUNTS = /\/(?:potus|realdonaldtrump|teamtrump|donaldtrump|trump)(?:[\/?#]|$)/i;
+  let trumpPage = false;
+
+  function checkTrumpPage() {
+    const og = document.querySelector('meta[property="og:title"]');
+    trumpPage = TEXT_RE.test(document.title) || TRUMP_ACCOUNTS.test(location.pathname)
+      || ATTR_RE.test(location.pathname) || !!(og && TEXT_RE.test(og.content || ''));
+  }
+
+  function hidePageMedia(m) {
+    if (insideHidden(m) || (host && host.contains(m))) return;
+    const r = m.getBoundingClientRect();
+    if (r.width > 0 && r.width < 40 && r.height < 40) return; // icons, not photos
+    // Hide the tile or link around a single photo so the 💩 fills the whole tile.
+    const tile = m.closest('a, figure, picture');
+    hide(tile && tile.querySelectorAll('img,video').length === 1 && !tile.matches(PROTECTED) ? tile : m);
+  }
+
   // ---- Scanning --------------------------------------------------------
   function checkText(t) {
     const p = t.parentElement;
@@ -278,6 +307,7 @@
       if (s && s.includes('url(') && ATTR_RE.test(s)) hit = true;
     }
     if (hit) hideFor(el);
+    else if (trumpPage && (el.tagName === 'IMG' || el.tagName === 'VIDEO')) hidePageMedia(el);
   }
 
   function scan(root) {
@@ -317,7 +347,10 @@
     const nodes = [...queue];
     queue.clear();
     dropOrphanPlaceholders();
-    for (const n of nodes) if (n.isConnected) scan(n);
+    const wasTrumpPage = trumpPage;
+    checkTrumpPage();
+    if (trumpPage && !wasTrumpPage) scan(document.body); // navigated onto a Trump page in a single-page app
+    else for (const n of nodes) if (n.isConnected) scan(n);
     ensureButton();
     render();
   }
@@ -329,6 +362,7 @@
       observer.observe(document.documentElement, OBSERVE_OPTS);
       textLenCache = new Map();
       linkIndex = null;
+      checkTrumpPage();
       scan(document.body || document.documentElement);
     } else {
       observer.disconnect();
@@ -394,6 +428,6 @@
   ensureButton();
   document.addEventListener('DOMContentLoaded', () => {
     ensureButton();
-    if (active) scan(document.body);
+    if (active) { checkTrumpPage(); scan(document.body); }
   });
 })();

@@ -11,7 +11,9 @@ A Chrome extension that adds a **Hide Trump** button to the top-left corner of e
 
 A headline about Trump hides the whole article; a passing mention inside a long article only hides that paragraph.
 
-In grids and rows (like YouTube's video grid), a hidden item is replaced by a same-sized 💩 so the layout doesn't get holes. In ordinary top-to-bottom feeds, the rest of the page simply closes up.
+Everything hidden is replaced by a 💩 taking up the same space, so pages keep their layout.
+
+**Pages about Trump:** when the page itself is about him (his Instagram profile, r/trump, a Trump article, a "trump" search), every photo and video on it becomes 💩, even ones with no caption naming him.
 
 The on/off setting is shared across all tabs, so it stays on as you browse.
 
