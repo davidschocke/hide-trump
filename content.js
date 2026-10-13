@@ -300,29 +300,37 @@
   function ensureButton() {
     if (!IS_TOP) return;
     if (!host) {
-      host = document.createElement('hide-trump-button');
-      const shadow = host.attachShadow({ mode: 'closed' });
-      shadow.innerHTML = `
-        <style>
-          :host { all: initial; }
-          button {
-            position: fixed; top: 10px; left: 10px; z-index: 2147483647;
-            font: 600 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
-            padding: 8px 14px; border-radius: 999px; cursor: pointer;
-            background: #fff; color: #111; border: 1px solid rgba(0,0,0,.2);
-            box-shadow: 0 2px 8px rgba(0,0,0,.25); opacity: .85;
-          }
-          button:hover { opacity: 1; }
-          button.on { background: #c62828; color: #fff; border-color: #c62828; }
-        </style>
-        <button type="button">Hide Trump</button>`;
-      btn = shadow.querySelector('button');
-      btn.addEventListener('click', () => {
+      // Built element by element, not with innerHTML: sites that enforce Trusted Types
+      // (Reddit, YouTube, Google) block innerHTML, even from extensions.
+      const el = document.createElement('hide-trump-button');
+      const shadow = el.attachShadow({ mode: 'closed' });
+      const style = document.createElement('style');
+      style.textContent = `
+        :host { all: initial; }
+        button {
+          position: fixed; top: 10px; left: 10px; z-index: 2147483647;
+          font: 600 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+          padding: 8px 14px; border-radius: 999px; cursor: pointer;
+          background: #fff; color: #111; border: 1px solid rgba(0,0,0,.2);
+          box-shadow: 0 2px 8px rgba(0,0,0,.25); opacity: .85;
+        }
+        button:hover { opacity: 1; }
+        button.on { background: #c62828; color: #fff; border-color: #c62828; }`;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.addEventListener('click', () => {
         try { chrome.storage.local.set({ htActive: !active }); }
         catch { setActive(!active); } // extension was reloaded; still work on this page
       });
+      shadow.append(style, b);
+      host = el;
+      btn = b;
+      // Some sites rebuild the page and throw out elements they don't know; put the button back.
+      new MutationObserver(() => {
+        if (!host.isConnected) (document.body || document.documentElement).appendChild(host);
+      }).observe(document.documentElement, { childList: true, subtree: true });
     }
-    if (!host.isConnected) document.documentElement.appendChild(host);
+    if (!host.isConnected) (document.body || document.documentElement).appendChild(host);
     render();
   }
 
